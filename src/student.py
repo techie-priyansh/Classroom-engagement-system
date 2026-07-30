@@ -17,3 +17,9 @@ class Student:
     @property
     def visible_time(self):
         return round(self.last_seen - self.first_seen, 2)
+
+    # def get_student(self, track_id):
+    #     return self.students.get(track_id)
+
+    landmarks_points = None
+    head_pose = None

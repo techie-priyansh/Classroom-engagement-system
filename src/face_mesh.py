@@ -1,5 +1,6 @@
 import cv2
 import mediapipe as mp
+import numpy as np
 
 
 class FaceMeshDetector:
@@ -24,13 +25,16 @@ class FaceMeshDetector:
 
     def detect(self, roi):
         """
-        Detect face landmarks on a cropped ROI.
+        Detect face landmarks on a cropped head ROI.
 
-        Args:
-            roi : BGR image
+        Parameters
+        ----------
+        roi : ndarray
+            Cropped BGR head image.
 
-        Returns:
-            MediaPipe landmarks or None
+        Returns
+        -------
+        MediaPipe FaceLandmarks object or None.
         """
 
         if roi is None or roi.size == 0:
@@ -47,42 +51,63 @@ class FaceMeshDetector:
 
     def get_landmark_points(self, landmarks, head_bbox):
         """
-        Convert MediaPipe normalized landmarks into
-        pixel coordinates on the original frame.
+        Convert MediaPipe normalized landmarks into pixel
+        coordinates of the ORIGINAL frame.
 
-        Args:
-            landmarks: MediaPipe landmark object
-            head_bbox: (x1, y1, x2, y2)
+        Parameters
+        ----------
+        landmarks : MediaPipe FaceLandmarks
+        head_bbox : (x1, y1, x2, y2)
 
-        Returns:
-            List of (x, y) pixel coordinates
+        Returns
+        -------
+        numpy.ndarray
+            Shape (N, 2) where N is usually 478.
         """
 
         if landmarks is None:
-            return []
+            return None
 
         x1, y1, x2, y2 = head_bbox
 
         roi_width = x2 - x1
         roi_height = y2 - y1
 
-        points = []
+        landmark_points = []
 
         for landmark in landmarks.landmark:
 
             px = int(landmark.x * roi_width) + x1
             py = int(landmark.y * roi_height) + y1
 
-            points.append((px, py))
+            landmark_points.append([px, py])
 
-        return points
+        landmark_points = np.array(
+            landmark_points,
+            dtype=np.float32
+        )
 
+        return landmark_points
 
-    def draw_landmarks(self, frame, landmarks, head_bbox):
+    def draw_landmarks(self, frame, landmark_points):
         """
-        Draw ROI landmarks back on the original frame.
+        Draw landmarks on the original frame.
+
+        Parameters
+        ----------
+        frame : ndarray
+        landmark_points : ndarray (N,2)
         """
 
-        points= self.get_landmark_points(landmarks, head_bbox)
-        for point in points:
-            cv2.circle(frame, point, 1, (0,255,0),-1)
+        if landmark_points is None:
+            return
+
+        for x, y in landmark_points:
+
+            cv2.circle(
+                frame,
+                (int(x), int(y)),
+                1,
+                (0, 255, 0),
+                -1,
+            )
