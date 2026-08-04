@@ -2,6 +2,7 @@ import cv2
 
 print("="*50)
 cap= cv2.VideoCapture(0)
+#cap= cv2.VideoCapture('http://10.147.234.168.8080/video')
 
 if not cap.isOpened():
     print("Unable to access webcam")

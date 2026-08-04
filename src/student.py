@@ -9,7 +9,11 @@ class Student:
     last_seen: float = field(default_factory= time.time)
     current_box: list | None= None
     engagement_score: float = 0.0
+    eye_state = None
+    left_ear= 0.0
+    right_ear = 0.0
 
+    
     def update(self, box):
         self.frames_seen+=1
         self.last_seen= time.time()
