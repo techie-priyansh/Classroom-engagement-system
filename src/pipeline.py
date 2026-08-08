@@ -9,6 +9,7 @@ from eye_analyser import EyeAnalyser
 from utils import extract_head_roi
 from gaze_estimator import GazeEstimator
 
+file_path = "/home/mylinux/Desktop/MTech_Project/MTP/Classroom-engagement-system/215475_medium.mp4"
 def main():
 
     # --------------------------------------------------
@@ -23,7 +24,7 @@ def main():
     eye_analyzer = EyeAnalyser()
     gaze_estimator= GazeEstimator()
 
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(file_path)
 
     if not cap.isOpened():
         print("Error: Unable to open camera.")

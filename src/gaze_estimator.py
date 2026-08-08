@@ -22,8 +22,8 @@ class GazeEstimator:
         380,
     ]
     def __init__(self):
-        self.horizontal_threshold = 15.0
-        self.vertical_threshold = 15.0
+        self.horizontal_threshold = 20.0
+        self.vertical_threshold = 20.0
 
     def _eye_center(self, eye_points):
         return np.mean(eye_points, axis=0)
