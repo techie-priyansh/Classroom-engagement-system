@@ -3,7 +3,40 @@ from ultralytics import YOLO
 
 
 class BodyPoseEstimator:
-
+    KEYPOINT_NAMES = [
+    "nose",
+    "left_eye",
+    "right_eye",
+    "left_ear",
+    "right_ear",
+    "left_shoulder",
+    "right_shoulder",
+    "left_elbow",
+    "right_elbow",
+    "left_wrist",
+    "right_wrist",
+    "left_hip",
+    "right_hip",
+    "left_knee",
+    "right_knee",
+    "left_ankle",
+    "right_ankle",
+    ]
+    def get_named_keypoints(self,person):
+        keypoints = person["keypoints"]
+        confidence = person["confidence"]
+        named = {}
+        for i, name in enumerate(self.KEYPOINT_NAMES):
+            named[name] = {
+                "point" : keypoints[i],
+                "confidence": (
+                    confidence[i]
+                    if confidence is not None
+                    else None
+                ),
+            }
+        return named
+    
     def __init__(self, model_path="yolo11n-pose.pt"):
         self.model = YOLO(model_path)
 
