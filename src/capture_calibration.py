@@ -3,7 +3,7 @@ from pathlib import Path
 
 
 #CAMERA_DEVICE = "/dev/video2"
-OUTPUT_DIR = Path("calibration/images")
+OUTPUT_DIR = Path("calibration/test")
 CAMERA_DEVICE = 2
 
 

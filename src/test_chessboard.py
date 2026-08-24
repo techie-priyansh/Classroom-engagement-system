@@ -1,6 +1,6 @@
 import cv2
 
-IMAGE_PATH = "calibration/images/calib_04.jpg"
+IMAGE_PATH = "/home/mylinux/Desktop/MTech_Project/MTP/calibration/images/calib_04.jpg"
 
 CHECKERBOARD = (9, 6)
 
