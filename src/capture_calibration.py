@@ -3,7 +3,7 @@ from pathlib import Path
 
 
 #CAMERA_DEVICE = "/dev/video2"
-OUTPUT_DIR = Path("calibration/test")
+OUTPUT_DIR = Path("calibration/virtualClassroom")
 CAMERA_DEVICE = 2
 
 
@@ -17,7 +17,7 @@ def main():
         print(f"Error: Could not open {CAMERA_DEVICE}")
         return
 
-    count = 0
+    count = 10
 
     print("Calibration image capture")
     print("-------------------------")
