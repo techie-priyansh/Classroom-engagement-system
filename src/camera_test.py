@@ -2,9 +2,12 @@ import cv2
 import time
 
 print("="*50)
-cap= cv2.VideoCapture(2)
+#cap= cv2.VideoCapture(0)
 #cap= cv2.VideoCapture('http://10.147.234.168.8080/video')
-
+cap = cv2.VideoCapture(
+    "rtsp://admin:admin@192.168.1.123:554/live/av0",
+    cv2.CAP_FFMPEG
+)
 if not cap.isOpened():
     print("Unable to access webcam")
     exit()
