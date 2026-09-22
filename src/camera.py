@@ -2,7 +2,7 @@ import cv2
 
 
 class Camera:
-    def __init__(self, source=0):
+    def __init__(self, source="rtsp://192.168.1.123:554/live/av0"):
         self.cap = cv2.VideoCapture(source)
 
         if not self.cap.isOpened():
