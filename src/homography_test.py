@@ -3,8 +3,8 @@ import numpy as np
 from pathlib import Path
 
 
-PHONE_IMAGE = Path("/home/mylinux/Desktop/MTech_Project/MTP/calibration/virtualClassroom/calib_12.jpg")
-LAPTOP_IMAGE = Path("/home/mylinux/Desktop/MTech_Project/MTP/calibration/virtualClassroom/calib_01.jpg")
+# PHONE_IMAGE = Path("/home/mylinux/Desktop/MTech_Project/MTP/calibration/virtualClassroom/calib_12.jpg")
+# LAPTOP_IMAGE = Path("/home/mylinux/Desktop/MTech_Project/MTP/calibration/virtualClassroom/calib_01.jpg")
 
 
 # --------------------------------------------------
@@ -13,6 +13,10 @@ LAPTOP_IMAGE = Path("/home/mylinux/Desktop/MTech_Project/MTP/calibration/virtual
 
 # PHONE_IMAGE = Path("/home/mylinux/Desktop/MTech_Project/MTP/Classroom-engagement-system/src/calib_12.jpg")
 # LAPTOP_IMAGE = Path("/home/mylinux/Desktop/MTech_Project/MTP/Classroom-engagement-system/src/calib_01.jpg")
+
+#Paths
+PHONE_IMAGE = Path("/home/mylinux/Desktop/MTech_Project/MTP/Classroom-engagement-system/src/Mobile1_train.jpg")
+LAPTOP_IMAGE = Path("/home/mylinux/Desktop/MTech_Project/MTP/Classroom-engagement-system/src/Laptop1_train.jpg")
 
 OUTPUT_DIR = Path(
     "/home/mylinux/Desktop/MTech_Project/MTP/Classroom-engagement-system/calibration/results"

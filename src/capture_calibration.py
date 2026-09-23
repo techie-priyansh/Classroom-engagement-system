@@ -2,9 +2,9 @@ import cv2
 from pathlib import Path
 
 
-#CAMERA_DEVICE = "/dev/video2"
+CAMERA_DEVICE = "/dev/video2"
 OUTPUT_DIR = Path("calibration/virtualClassroom")
-CAMERA_DEVICE = 2
+#CAMERA_DEVICE = 0
 
 
 def main():
@@ -17,7 +17,7 @@ def main():
         print(f"Error: Could not open {CAMERA_DEVICE}")
         return
 
-    count = 10
+    count = 103
 
     print("Calibration image capture")
     print("-------------------------")
