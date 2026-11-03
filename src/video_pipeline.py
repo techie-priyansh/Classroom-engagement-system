@@ -36,7 +36,7 @@ SMOOTH_HEAD_POSE = True     # EMA smoothing of yaw/pitch/roll per student
 EMA_ALPHA = 0.4             # 1.0 = no smoothing, lower = smoother
 
 MIN_POSE_IOU = 0.3          # minimum IoU to accept a body-pose match
-KEYPOINT_CONF = 0.3         # used only if keypoints have a 3rd (confidence) column
+KEYPOINT_CONF = 0.3         # keypoints below this confidence do not count for the pose box
 
 # --------------------------------------------------
 # PTZ Recording Schedule
@@ -154,7 +154,12 @@ def pose_bounding_box(person):
 
     valid = (keypoints[:, 0] > 0) & (keypoints[:, 1] > 0)
 
-    if keypoints.shape[1] >= 3:
+    # Confidence comes as a separate array (see BodyPoseEstimator).
+    confidence = person.get("confidence")
+
+    if confidence is not None:
+        valid &= np.asarray(confidence) > KEYPOINT_CONF
+    elif keypoints.shape[1] >= 3:
         valid &= keypoints[:, 2] > KEYPOINT_CONF
 
     if valid.sum() < 3:
@@ -302,9 +307,11 @@ def main():
         "avg_ear",
         "eye_state",
         "gaze",
-        "torso_angle",
-        "left_knee_angle",
-        "right_knee_angle",
+        "shoulder_tilt",
+        "head_drop",
+        "head_offset",
+        "hand_raised",
+        "hands_near_face",
     ])
 
     # --------------------------------------------------
@@ -443,9 +450,11 @@ def main():
                 eye_state = None
                 gaze_direction = None
 
-                torso_angle = None
-                left_knee_angle = None
-                right_knee_angle = None
+                shoulder_tilt = None
+                head_drop = None
+                head_offset = None
+                hand_raised = None
+                hands_near_face = None
 
                 # --------------------------------------------------
                 # Head ROI -> square ROI (from the CLEAN frame)
@@ -551,9 +560,11 @@ def main():
 
                     if posture is not None:
 
-                        torso_angle = posture["torso_angle"]
-                        left_knee_angle = posture["left_knee_angle"]
-                        right_knee_angle = posture["right_knee_angle"]
+                        shoulder_tilt = posture["shoulder_tilt"]
+                        head_drop = posture["head_drop"]
+                        head_offset = posture["head_offset"]
+                        hand_raised = posture["hand_raised"]
+                        hands_near_face = posture["hands_near_face"]
 
                 # --------------------------------------------------
                 # CSV logging
@@ -576,9 +587,11 @@ def main():
                     eye_state,
                     gaze_direction,
 
-                    fmt(torso_angle, 3),
-                    fmt(left_knee_angle, 3),
-                    fmt(right_knee_angle, 3),
+                    fmt(shoulder_tilt, 3),
+                    fmt(head_drop, 3),
+                    fmt(head_offset, 3),
+                    hand_raised,
+                    hands_near_face,
                 ])
 
                 # --------------------------------------------------
@@ -605,14 +618,17 @@ def main():
                 if gaze_direction is not None:
                     lines.append(f"Gaze: {gaze_direction}")
 
-                if torso_angle is not None:
-                    lines.append(f"Torso: {torso_angle:.1f}")
+                if head_drop is not None:
+                    lines.append(f"HeadDrop: {head_drop:.2f}")
 
-                if left_knee_angle is not None:
-                    lines.append(f"L-Knee: {left_knee_angle:.1f}")
+                if shoulder_tilt is not None:
+                    lines.append(f"ShTilt: {shoulder_tilt:.1f}")
 
-                if right_knee_angle is not None:
-                    lines.append(f"R-Knee: {right_knee_angle:.1f}")
+                if hand_raised:
+                    lines.append("HAND RAISED")
+
+                if hands_near_face:
+                    lines.append("Hand@face")
 
                 info_y = max(20, y1 - 10 - 18 * (len(lines) - 1))
 

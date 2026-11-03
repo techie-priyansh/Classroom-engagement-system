@@ -40,15 +40,16 @@ def main():
             if features is None:
                 continue
 
-            torso_angle = features["torso_angle"]
-            left_knee = features["left_knee_angle"]
-            right_knee = features["right_knee_angle"]
+            def show(value, spec):
+                return "n/a" if value is None else format(value, spec)
 
             print(
                 f"Person {i} | "
-                f"Torso: {torso_angle:.1f}° | "
-                f"Left Knee: {left_knee:.1f}° | "
-                f"Right Knee: {right_knee:.1f}°"
+                f"Shoulder tilt: {show(features['shoulder_tilt'], '.1f')}° | "
+                f"Head drop: {show(features['head_drop'], '.2f')} | "
+                f"Head offset: {show(features['head_offset'], '.2f')} | "
+                f"Hand raised: {features['hand_raised']} | "
+                f"Hand at face: {features['hands_near_face']}"
             )
 
         # Draw pose
