@@ -1,110 +1,3 @@
-# import cv2
-# import numpy as np
-
-
-# class HeadPoseEstimator:
-
-#     def __init__(self):
-
-#         original_model = np.array([
-#             (0.0, 0.0, 0.0),          # Nose
-#             (0.0, -63.6, -12.5),      # Chin
-#             (-43.3, 32.7, -26.0),     # Left eye
-#             (43.3, 32.7, -26.0),      # Right eye
-#             (-28.9, -28.9, -24.1),    # Left mouth
-#             (28.9, -28.9, -24.1)      # Right mouth
-#         ], dtype=np.float64)
-
-#         # Convert the facial model to the OpenCV camera convention.
-#         # Y -> down
-#         # Z -> away from the face
-#         self.model_points = original_model * np.array(
-#             [1.0, -1.0, -1.0]
-#         )
-
-#     def rotation_matrix_to_euler_angles(self, R):
-#         """
-#         Convert a rotation matrix into Euler angles.
-
-#         Returns:
-#             yaw, pitch, roll in degrees
-#         """
-
-#         sy = np.sqrt(R[0, 0] ** 2 + R[1, 0] ** 2)
-
-#         singular = sy < 1e-6
-
-#         if not singular:
-
-#             pitch = np.arctan2(R[2, 1], R[2, 2])
-#             yaw = np.arctan2(-R[2, 0], sy)
-#             roll = np.arctan2(R[1, 0], R[0, 0])
-
-#         else:
-
-#             pitch = np.arctan2(-R[1, 2], R[1, 1])
-#             yaw = np.arctan2(-R[2, 0], sy)
-#             roll = 0
-
-#         pitch = np.degrees(pitch)
-#         yaw = np.degrees(yaw)
-#         roll = np.degrees(roll)
-
-#         return yaw, pitch, roll
-
-#     def estimate(self, landmark_points, frame_shape):
-
-#         # MediaPipe landmark IDs
-#         #
-#         # 1   -> Nose
-#         # 152 -> Chin
-#         # 33  -> Left eye
-#         # 263 -> Right eye
-#         # 61  -> Left mouth
-#         # 291 -> Right mouth
-
-#         image_points = np.array([
-#             landmark_points[1],
-#             landmark_points[152],
-#             landmark_points[33],
-#             landmark_points[263],
-#             landmark_points[61],
-#             landmark_points[291]
-#         ], dtype=np.float64)
-
-#         h, w = frame_shape[:2]
-
-#         focal_length = max(w, h)
-
-#         center = (w / 2, h / 2)
-
-#         camera_matrix = np.array([
-#             [focal_length, 0, center[0]],
-#             [0, focal_length, center[1]],
-#             [0, 0, 1]
-#         ], dtype=np.float64)
-
-#         dist_coeffs = np.zeros((5, 1), dtype=np.float64)
-
-#         success, rotation_vector, translation_vector = cv2.solvePnP(
-#             self.model_points,
-#             image_points,
-#             camera_matrix,
-#             dist_coeffs,
-#             flags=cv2.SOLVEPNP_ITERATIVE
-#         )
-
-#         if not success:
-#             return None
-
-#         rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
-
-#         yaw, pitch, roll = self.rotation_matrix_to_euler_angles(
-#             rotation_matrix
-#         )
-
-#         return yaw, pitch, roll
-
 import cv2
 import numpy as np
 
@@ -214,22 +107,68 @@ class HeadPoseEstimator:
 
         camera_matrix = self.get_camera_matrix(frame_shape)
 
+        # Start the solver from a sensible guess: a frontal face, in front
+        # of the camera, at the distance implied by the eye spacing.
+        # Without a guess, the iterative solver sometimes converges to a
+        # mirrored solution that lies BEHIND the camera, and those frames
+        # were thrown away (6-24 % of faces on the test clip).
+        focal = camera_matrix[0, 0]
+        cx, cy = camera_matrix[0, 2], camera_matrix[1, 2]
+
+        # model eye corners (ids 33 and 263) are 86.6 mm apart
+        eye_px = float(np.linalg.norm(image_points[2] - image_points[3]))
+
+        if eye_px < 1.0:
+            return None
+
+        tz = focal * 86.6 / eye_px
+        tx = (image_points[0][0] - cx) * tz / focal
+        ty = (image_points[0][1] - cy) * tz / focal
+
+        rvec = np.zeros((3, 1), dtype=np.float64)
+        tvec = np.array([[tx], [ty], [tz]], dtype=np.float64)
+
         success, rvec, tvec = cv2.solvePnP(
             self.model_points,
             image_points,
             camera_matrix,
             self._dist_coeffs,
+            rvec,
+            tvec,
+            useExtrinsicGuess=True,
             flags=cv2.SOLVEPNP_ITERATIVE
         )
 
         if not success:
             return None
-
-        # The face must be in front of the camera
-        if tvec[2, 0] <= 0:
-            return None
-
+        
         R, _ = cv2.Rodrigues(rvec)
+
+        camera_points = (
+            R @ self.model_points.T + tvec
+        ).T
+
+        if np.any(camera_points[:, 2] <= 0):
+            return None
+        # The face must be in front of the camera
+        # if tvec[2, 0] <= 0:
+        #     return None
+
+        projected_points, _ = cv2.projectPoints(
+            self.model_points,
+            rvec,
+            tvec,
+            camera_matrix,
+            self._dist_coeffs
+        )
+
+        reprojection_error = np.mean(
+            np.linalg.norm(
+                image_points - projected_points.reshape(-1, 2),
+                axis=1
+            )
+        )
+       
 
         yaw, pitch, roll = self.rotation_matrix_to_euler_angles(R)
 
@@ -237,6 +176,7 @@ class HeadPoseEstimator:
             "yaw": yaw,
             "pitch": pitch,
             "roll": roll,
+            "reprojection_error": reprojection_error,
             "rvec": rvec,
             "tvec": tvec,
             "camera_matrix": camera_matrix,

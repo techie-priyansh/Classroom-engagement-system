@@ -11,8 +11,8 @@ from utils import extract_head_roi
 # Configuration
 # ---------------------------------------------------------
 
-VIDEO_PATH = "tests/test1.mp4"
-OUTPUT_PATH = "results/video_test/head_pose_axes.jpg"
+VIDEO_PATH = "tests/NR131_test1_30Sec.mp4"
+OUTPUT_PATH = "results/video_test/NR131_test1_30Sec_head_pose_axes.jpg"
 
 TARGET_TRACK_ID = 2
 
@@ -287,11 +287,35 @@ def main():
             # Solve PnP
             # -------------------------------------------------
 
+            # Initial translation estimate
+            focal = camera_matrix[0, 0]
+            cx, cy = camera_matrix[0, 2], camera_matrix[1, 2]
+
+            eye_px = float(np.linalg.norm(image_points[2] - image_points[3]))
+
+            if eye_px < 1.0:
+                print("Invalid eye distance.")
+                continue
+
+            tz = focal * 86.6 / eye_px
+            tx = (image_points[0][0] - cx) * tz / focal
+            ty = (image_points[0][1] - cy) * tz / focal
+
+            rotation_vector = np.zeros((3, 1), dtype=np.float64)
+
+            translation_vector = np.array(
+                [[tx], [ty], [tz]],
+                dtype=np.float64
+            )
+
             success, rotation_vector, translation_vector = cv2.solvePnP(
                 MODEL_CV,
                 image_points,
                 camera_matrix,
                 dist_coeffs,
+                rotation_vector,
+                translation_vector,
+                useExtrinsicGuess=True,
                 flags=cv2.SOLVEPNP_ITERATIVE
             )
 
@@ -311,6 +335,28 @@ def main():
                 rotation_matrix
             )
 
+            camera_points = (
+                rotation_matrix @ MODEL_CV.T + translation_vector
+            ).T
+
+            if np.any(camera_points[:, 2] <= 0):
+                print("Invalid pose: points behind camera.")
+                continue
+
+            projected_points, _ = cv2.projectPoints(
+                MODEL_CV,
+                rotation_vector,
+                translation_vector,
+                camera_matrix,
+                dist_coeffs
+            )
+
+            reprojection_error = np.mean(
+                np.linalg.norm(
+                    image_points - projected_points.reshape(-1, 2),
+                    axis=1
+                )
+            )
             # -------------------------------------------------
             # Print result
             # -------------------------------------------------
@@ -332,7 +378,7 @@ def main():
             print(
                 f"tz = {translation_vector[2][0]:.2f}"
             )
-
+            print(f"Reprojection Error: {reprojection_error:.2f} pixels")
             # -------------------------------------------------
             # Draw face landmarks
             # -------------------------------------------------
