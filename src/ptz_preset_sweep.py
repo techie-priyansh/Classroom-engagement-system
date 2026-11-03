@@ -38,8 +38,8 @@ else:
 # "teach" = drive the camera by keyboard and SAVE the 4 positions.
 # "sweep" = automatically visit the saved positions.
 # A command-line argument overrides this:  python ptz_preset_sweep.py sweep
-#MODE = "sweep"
-MODE = "teach"
+MODE = "sweep"
+#MODE = "teach"
 WAIT_SECS = 5.0          # hold time at each region (sweep mode)
 
 # The camera does not report when it has arrived, so after every GotoPreset

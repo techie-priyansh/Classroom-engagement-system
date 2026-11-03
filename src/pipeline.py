@@ -9,7 +9,7 @@ from eye_analyser import EyeAnalyser
 from utils import extract_head_roi
 from gaze_estimator import GazeEstimator
 
-file_path = "/home/mylinux/Desktop/MTech_Project/MTP/Classroom-engagement-system/tests/test2.mp4"
+file_path = "/home/mylinux/Desktop/MTech_Project/MTP/Classroom-engagement-system/tests/NR131_test1_30Sec.mp4"
 def main():
 
     # --------------------------------------------------

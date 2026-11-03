@@ -26,3 +26,8 @@ class StudentManager:
                 f"Frames: {student.frames_seen} | "
                 f"Visible: {student.visible_time:.2f}s"
             )
+
+    def reset(self):
+        """Clear student records when entering a new PTZ region."""
+        self.students.clear()
+        print("StudentManager reset successfully.")

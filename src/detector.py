@@ -26,3 +26,14 @@ class Detector:
             iou=self.iou,
             verbose=False,
         )
+    def reset_tracker(self):
+        """Reset all active ByteTrack instances."""
+        predictor = self.model.predictor
+
+        if predictor is not None and hasattr(predictor, "trackers"):
+            for tracker in predictor.trackers:
+                tracker.reset()
+
+            print("ByteTrack reset successfully.")
+        else:
+            print("No active tracker found.")

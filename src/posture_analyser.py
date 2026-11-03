@@ -56,7 +56,7 @@ class PostureAnalyser:
         right_knee_angle= self._angle(
             right_hip,
             right_knee,
-            keypoints["left_ankle"]["point"]
+            keypoints["right_ankle"]["point"]
         )
 
         return {

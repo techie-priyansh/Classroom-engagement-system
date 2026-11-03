@@ -277,3 +277,8 @@ class AngleSmoother:
         self._state[key] = smoothed
 
         return tuple(float(a) for a in smoothed)
+    
+    def reset(self):
+        """Clear previous head-pose measurements."""
+        self._state.clear()
+        print("AngleSmoother reset successfully.")
