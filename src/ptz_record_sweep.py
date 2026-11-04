@@ -7,6 +7,7 @@ you saved in teach mode are used as they are.
 Run:  python ptz_record_sweep.py
 """
 
+import json
 import os
 import sys
 import time
@@ -126,8 +127,16 @@ class Recorder:
 # RECORD + SWEEP
 # ============================================================
 
-def run_loop(c):
-    """Reset ONCE, then Region 1 -> 2 -> 3 -> 1 -> 2 -> 3 ... until abort (Q)."""
+def run_loop(c, sweep_log=None, clock=None):
+    """Reset ONCE, then Region 1 -> 2 -> 3 -> 1 -> 2 -> 3 ... until abort (Q).
+
+    sweep_log : list that receives one entry per completed hold, with times
+                in seconds from the start of the recorded video, e.g.
+                {"round": 1, "region": 1, "hold_start_s": 12.1, "hold_end_s": 20.1}
+                (hold_start_s is when the camera was COMMANDED to be there;
+                the analysis still trims the focus-recovery time itself).
+    clock     : function returning seconds since the recording started.
+    """
     c.rounds_done = 0
     try:
         if base.START_FROM_RESET:
@@ -155,8 +164,18 @@ def run_loop(c):
 
                 if not c.sleep(travel, f"Round {round_no} {label}: moving"):
                     return
+                hold_start = clock() if clock else None
+
                 if not c.sleep(base.WAIT_SECS, f"Round {round_no} {label}: holding"):
                     return
+
+                if sweep_log is not None and clock:
+                    sweep_log.append({
+                        "round": round_no,
+                        "region": int(role[-1]),
+                        "hold_start_s": round(hold_start, 2),
+                        "hold_end_s": round(clock(), 2),
+                    })
 
             c.rounds_done = round_no
 
@@ -183,6 +202,7 @@ def draw_rec_indicator(frame, recorder):
 def record_sweep(controller, reader, output_file, preview=True):
     """Record while the preset sweep runs. Returns the number of frames written."""
     recorder = Recorder(reader, output_file, RECORD_FPS)
+    sweep_log = []
     recorder.start()
     print(f"Recording to: {output_file}")
 
@@ -191,7 +211,8 @@ def record_sweep(controller, reader, output_file, preview=True):
         if controller.abort.wait(PAD_SECS):
             return
         if LOOP:
-            run_loop(controller)          # returns only when Q / error
+            # returns only when Q / error
+            run_loop(controller, sweep_log, recorder.elapsed)
         else:
             base.run_sweep(controller)    # one pass, then stops
         if not controller.abort.is_set():
@@ -235,6 +256,13 @@ def record_sweep(controller, reader, output_file, preview=True):
         frames = recorder.stop()
         if preview:
             cv2.destroyAllWindows()
+
+        # Hold times for the analysis (settle.segments_from_sweep_log).
+        if sweep_log:
+            log_path = os.path.splitext(output_file)[0] + ".sweep.json"
+            with open(log_path, "w") as f:
+                json.dump(sweep_log, f, indent=2)
+            print(f"Sweep log: {log_path}")
 
     return frames
 

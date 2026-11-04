@@ -14,6 +14,12 @@ from gaze_estimator import GazeEstimator
 from body_pose import BodyPoseEstimator
 from posture_analyser import PostureAnalyser
 from utils import extract_head_roi, make_square_roi
+from settle import (
+    find_settled_segments,
+    segments_from_sweep_log,
+    save_segments,
+    SegmentLookup,
+)
 
 
 # --------------------------------------------------
@@ -39,26 +45,19 @@ MIN_POSE_IOU = 0.3          # minimum IoU to accept a body-pose match
 KEYPOINT_CONF = 0.3         # keypoints below this confidence do not count for the pose box
 
 # --------------------------------------------------
-# PTZ Recording Schedule
+# PTZ settled segments
 # --------------------------------------------------
+# The frames where the camera stands still and in focus are found from
+# image sharpness and motion (see settle.py). They are saved next to the
+# results; delete the file if the video or the settle settings change.
 
-REGION_RANGES = {
-    1: (50, 249),
-    2: (300, 499),
-    3: (550, 749),
-}
+SEGMENTS_FILE = OUTPUT_DIR / f"{VIDEO_PATH.stem}_segments.json"
 
-TRANSITION_START_FRAMES = {250, 500}
+# Optional: the sweep log written by ptz_record_sweep.py. When this file
+# exists, its hold windows are used (and trimmed by the image checks).
+SWEEP_LOG = VIDEO_PATH.with_suffix(".sweep.json")
 
 
-def get_region_id(frame_number):
-    """Return region ID if the camera is stationary, otherwise None."""
-
-    for region_id, (start, end) in REGION_RANGES.items():
-        if start <= frame_number <= end:
-            return region_id
-
-    return None
 # --------------------------------------------------
 # Utility
 # --------------------------------------------------
@@ -222,6 +221,34 @@ def main():
     print("=" * 60)
 
     # --------------------------------------------------
+    # Settled camera segments (replaces fixed frame ranges)
+    # --------------------------------------------------
+
+    if SWEEP_LOG.exists():
+        segments = segments_from_sweep_log(SWEEP_LOG, VIDEO_PATH)
+        save_segments(segments, SEGMENTS_FILE)
+        print(f"Segments from sweep log: {SWEEP_LOG}")
+    else:
+        segments = find_settled_segments(
+            VIDEO_PATH,
+            cache_path=SEGMENTS_FILE,
+        )
+        print(f"Segments from image analysis (cache: {SEGMENTS_FILE})")
+
+    if not segments:
+        print("No settled camera segments found.")
+        return
+
+    for segment in segments:
+        print(
+            f"  Region {segment['region']}: frames "
+            f"{segment['start_frame']}-{segment['end_frame']} "
+            f"({segment['start_s']:.2f}-{segment['end_s']:.2f} s)"
+        )
+
+    segment_lookup = SegmentLookup(segments)
+
+    # --------------------------------------------------
     # Video writer + CSV
     # --------------------------------------------------
 
@@ -287,11 +314,14 @@ def main():
             # PTZ Region Handling
             # --------------------------------------------------
 
-            region_id = get_region_id(frame_number)
+            region_id = segment_lookup.region_id(frame_number)
 
-            # Reset tracking when the camera starts moving
-            if frame_number in TRANSITION_START_FRAMES:
-                print(f"\nCamera transition at frame {frame_number}")
+            # New settled view -> start with clean tracking state
+            if segment_lookup.starts_segment(frame_number):
+                print(
+                    f"\nSettled view (region {region_id}) "
+                    f"starts at frame {frame_number}"
+                )
 
                 detector.reset_tracker()
                 student_manager.reset()
