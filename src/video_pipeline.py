@@ -41,6 +41,12 @@ SHOW_WINDOW = True          # set False on a headless machine
 SMOOTH_HEAD_POSE = True     # EMA smoothing of yaw/pitch/roll per student
 EMA_ALPHA = 0.4             # 1.0 = no smoothing, lower = smoother
 
+# True : one pose model finds, tracks and gives keypoints (about 3x less
+#        compute per frame in our CPU test; same people found).
+# False: the older two-model path (person detector + pose model, matched
+#        by IoU). Keep it for comparison.
+USE_POSE_ONLY = True
+
 MIN_POSE_IOU = 0.3          # minimum IoU to accept a body-pose match
 KEYPOINT_CONF = 0.3         # keypoints below this confidence do not count for the pose box
 
@@ -175,7 +181,7 @@ def main():
     # Initialize modules
     # --------------------------------------------------
 
-    detector = Detector()
+    detector = None if USE_POSE_ONLY else Detector()
     tracker = Tracker()
     student_manager = StudentManager()
 
@@ -323,7 +329,10 @@ def main():
                     f"starts at frame {frame_number}"
                 )
 
-                detector.reset_tracker()
+                if USE_POSE_ONLY:
+                    body_pose.reset_tracker()
+                else:
+                    detector.reset_tracker()
                 student_manager.reset()
                 angle_smoother.reset()
                 local_to_global_id.clear()
@@ -347,7 +356,13 @@ def main():
             # Detection + Tracking
             # --------------------------------------------------
 
-            results = detector.detect(frame)
+            pose_by_local_id = {}
+
+            if USE_POSE_ONLY:
+                raw_tracks, pose_by_local_id = body_pose.track(frame)
+                results = [None]
+            else:
+                results = detector.detect(frame)
 
             if len(results) == 0:
 
@@ -364,9 +379,12 @@ def main():
 
                 continue
 
-            raw_tracks = list(tracker.process(results[0]))
+            if not USE_POSE_ONLY:
+                raw_tracks = list(tracker.process(results[0]))
 
             tracks = []
+
+            pose_matches = {}
 
             for local_id, bbox in raw_tracks:
 
@@ -378,15 +396,20 @@ def main():
 
                 tracks.append((global_id, bbox))
 
+                if local_id in pose_by_local_id:
+                    pose_matches[global_id] = pose_by_local_id[local_id]
+
             # --------------------------------------------------
-            # Body pose (once per frame) + one-to-one matching
+            # Two-model path: body pose (once per frame) + matching
             # --------------------------------------------------
 
-            pose_results = body_pose.estimate(frame)
+            if not USE_POSE_ONLY:
 
-            pose_persons = body_pose.extract_keypoints(pose_results)
+                pose_results = body_pose.estimate(frame)
 
-            pose_matches = match_poses(tracks, pose_persons)
+                pose_persons = body_pose.extract_keypoints(pose_results)
+
+                pose_matches = match_poses(tracks, pose_persons)
 
             # --------------------------------------------------
             # Process every tracked student
