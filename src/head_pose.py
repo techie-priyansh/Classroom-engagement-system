@@ -36,6 +36,11 @@ class HeadPoseEstimator:
         self._camera_matrix = None
         self._dist_coeffs = np.zeros((5, 1), dtype=np.float64)
 
+        # Why the last call to estimate_full() returned None:
+        # "bad_eye_distance", "solver_failed" or "behind_camera".
+        # None when the last call succeeded. Used by the validation script.
+        self.last_failure = None
+
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
@@ -100,6 +105,8 @@ class HeadPoseEstimator:
         or None if the pose could not be solved.
         """
 
+        self.last_failure = None
+
         image_points = np.array(
             [landmark_points[i][:2] for i in self.LANDMARK_IDS],
             dtype=np.float64
@@ -119,6 +126,7 @@ class HeadPoseEstimator:
         eye_px = float(np.linalg.norm(image_points[2] - image_points[3]))
 
         if eye_px < 1.0:
+            self.last_failure = "bad_eye_distance"
             return None
 
         tz = focal * 86.6 / eye_px
@@ -140,6 +148,7 @@ class HeadPoseEstimator:
         )
 
         if not success:
+            self.last_failure = "solver_failed"
             return None
         
         R, _ = cv2.Rodrigues(rvec)
@@ -149,6 +158,7 @@ class HeadPoseEstimator:
         ).T
 
         if np.any(camera_points[:, 2] <= 0):
+            self.last_failure = "behind_camera"
             return None
         # The face must be in front of the camera
         # if tvec[2, 0] <= 0:
