@@ -281,7 +281,6 @@ def main():
         "left_ear",
         "right_ear",
         "avg_ear",
-        "eye_state",
         "gaze",
         "shoulder_tilt",
         "head_drop",
@@ -417,7 +416,9 @@ def main():
 
             for track_id, bbox in tracks:
 
-                student_manager.update_student(track_id, bbox)
+                student_manager.update_student(
+                    track_id, bbox, frame_number, timestamp
+                )
 
                 student = student_manager.get_students()[track_id]
 
@@ -513,7 +514,6 @@ def main():
 
                         avg_ear = (left_ear + right_ear) / 2
 
-                        student.eye_state = eye_state
                         student.left_ear = left_ear
                         student.right_ear = right_ear
                         student.avg_ear = avg_ear
@@ -580,7 +580,6 @@ def main():
                     fmt(right_ear, 4),
                     fmt(avg_ear, 4),
 
-                    eye_state,
                     gaze_direction,
 
                     fmt(shoulder_tilt, 3),
@@ -604,9 +603,6 @@ def main():
 
                 if roll is not None:
                     lines.append(f"Roll: {roll:.1f}")
-
-                if eye_state is not None:
-                    lines.append(f"Eyes: {eye_state}")
 
                 if avg_ear is not None:
                     lines.append(f"EAR: {avg_ear:.3f}")

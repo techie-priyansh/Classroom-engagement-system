@@ -147,7 +147,6 @@ def main():
 
                     avg_ear = (left_ear + right_ear) / 2
 
-                    student.eye_state = eye_state
                     student.left_ear = left_ear
                     student.right_ear = right_ear
                     student.avg_ear = avg_ear
