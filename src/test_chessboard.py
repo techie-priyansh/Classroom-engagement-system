@@ -1,6 +1,7 @@
+from paths import CALIBRATION_DIR
 import cv2
 
-IMAGE_PATH = "/home/mylinux/Desktop/MTech_Project/MTP/calibration/images/calib_04.jpg"
+IMAGE_PATH = str(CALIBRATION_DIR / "images" / "calib_04.jpg")
 
 CHECKERBOARD = (9, 6)
 

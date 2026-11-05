@@ -17,6 +17,7 @@ Results go to results/head_pose_validation/ (per-frame CSV, per-student
 CSV and a text summary).
 """
 
+from paths import TEST_VIDEO, RESULTS_DIR
 import argparse
 import csv
 import sys
@@ -36,9 +37,9 @@ from utils import extract_head_roi, make_square_roi
 # Defaults
 # --------------------------------------------------
 
-DEFAULT_VIDEO = "tests/NR131_test1_30Sec.mp4"
+DEFAULT_VIDEO = str(TEST_VIDEO)
 DEFAULT_RANGES = "50-249,300-499,550-749"     # same as video_pipeline.py
-DEFAULT_OUT = "results/head_pose_validation"
+DEFAULT_OUT = str(RESULTS_DIR / "head_pose_validation")
 
 EMA_ALPHA = 0.4          # same smoothing as video_pipeline.py
 JUMP_DEG = 30.0          # a frame-to-frame change above this is a "jump"

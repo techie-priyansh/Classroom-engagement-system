@@ -25,6 +25,7 @@ ml_dtypes==0.5.4
 mpmath==1.3.0
 networkx==3.6.1
 numpy==1.26.4
+onvif-zeep==0.2.12
 nvidia-cublas==13.1.1.3
 nvidia-cuda-cupti==13.0.85
 nvidia-cuda-nvrtc==13.0.88

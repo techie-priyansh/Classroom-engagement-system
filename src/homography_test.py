@@ -1,26 +1,21 @@
+from paths import PROJECT_ROOT, SRC_DIR
 import cv2
 import numpy as np
 from pathlib import Path
 
 
-# PHONE_IMAGE = Path("/home/mylinux/Desktop/MTech_Project/MTP/calibration/virtualClassroom/calib_12.jpg")
-# LAPTOP_IMAGE = Path("/home/mylinux/Desktop/MTech_Project/MTP/calibration/virtualClassroom/calib_01.jpg")
 
 
 # --------------------------------------------------
 # Configuration
 # --------------------------------------------------
 
-# PHONE_IMAGE = Path("/home/mylinux/Desktop/MTech_Project/MTP/Classroom-engagement-system/src/calib_12.jpg")
-# LAPTOP_IMAGE = Path("/home/mylinux/Desktop/MTech_Project/MTP/Classroom-engagement-system/src/calib_01.jpg")
 
 #Paths
-PHONE_IMAGE = Path("/home/mylinux/Desktop/MTech_Project/MTP/Classroom-engagement-system/src/Mobile1_train.jpg")
-LAPTOP_IMAGE = Path("/home/mylinux/Desktop/MTech_Project/MTP/Classroom-engagement-system/src/Laptop1_train.jpg")
+PHONE_IMAGE = SRC_DIR / "Mobile1_train.jpg"
+LAPTOP_IMAGE = SRC_DIR / "Laptop1_train.jpg"
 
-OUTPUT_DIR = Path(
-    "/home/mylinux/Desktop/MTech_Project/MTP/Classroom-engagement-system/calibration/results"
-)
+OUTPUT_DIR = PROJECT_ROOT / "calibration" / "results"
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 

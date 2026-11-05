@@ -1,3 +1,4 @@
+from paths import TEST_VIDEO, RESULTS_DIR
 import csv
 from pathlib import Path
 
@@ -26,8 +27,8 @@ from settle import (
 # Paths
 # --------------------------------------------------
 
-VIDEO_PATH = Path("tests/NR131_test1_30Sec.mp4")
-OUTPUT_DIR = Path("results/video_test")
+VIDEO_PATH = TEST_VIDEO
+OUTPUT_DIR = RESULTS_DIR / "video_test"
 
 OUTPUT_VIDEO = OUTPUT_DIR / "annotated1.mp4"
 OUTPUT_CSV = OUTPUT_DIR / "student_data1.csv"

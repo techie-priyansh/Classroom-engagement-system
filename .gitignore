@@ -18,3 +18,15 @@ __pycache__/
 *.avi
 dataset/
 
+# Model weights (downloaded automatically by ultralytics on first use)
+*.pt
+
+# Generated outputs
+results/**/annotated*.mp4
+dataset/
+
+# Patch files and scratch images
+*.patch
+phase1_patches*/
+phase1_patches*.zip
+tests/Pasted image*

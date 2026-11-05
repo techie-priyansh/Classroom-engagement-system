@@ -7,6 +7,7 @@ you saved in teach mode are used as they are.
 Run:  python ptz_record_sweep.py
 """
 
+from paths import DATASET_DIR
 import json
 import os
 import sys
@@ -23,7 +24,7 @@ import ptz_preset_sweep as base
 # SETTINGS  (edit these)
 # ============================================================
 
-SAVE_DIR = "/home/mylinux/Desktop/MTech_Project/MTP/Classroom-engagement-system/dataset"
+SAVE_DIR = str(DATASET_DIR)
 
 RECORD_FPS = 25.0   # frame rate of the saved video
 PAD_SECS = 1.0      # extra seconds recorded before the sweep starts and after it ends

@@ -23,6 +23,7 @@ Usage:
     # [{"region": 1, "start_frame": 88, "end_frame": 262, ...}, ...]
 """
 
+from paths import TEST_VIDEO
 import json
 from pathlib import Path
 
@@ -332,7 +333,7 @@ if __name__ == "__main__":
 
     import sys
 
-    path = sys.argv[1] if len(sys.argv) > 1 else "tests/NR131_test1_30Sec.mp4"
+    path = sys.argv[1] if len(sys.argv) > 1 else str(TEST_VIDEO)
 
     for s in find_settled_segments(path):
         print(

@@ -1,3 +1,4 @@
+from paths import CALIBRATION_DIR
 import cv2
 import numpy as np
 from pathlib import Path
@@ -7,8 +8,8 @@ from pathlib import Path
 # Configuration
 # --------------------------------------------------
 
-IMAGE_DIR = Path("/home/mylinux/Desktop/MTech_Project/MTP/calibration/images")
-OUTPUT_DIR = Path("/home/mylinux/Desktop/MTech_Project/MTP/calibration/results")
+IMAGE_DIR = CALIBRATION_DIR / "images"
+OUTPUT_DIR = CALIBRATION_DIR / "results"
 
 CHECKERBOARD = (9, 6)       # internal corners
 SQUARE_SIZE = 25.0          # mm

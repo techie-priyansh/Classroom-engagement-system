@@ -1,3 +1,4 @@
+from paths import CALIBRATION_DIR, SRC_DIR
 import cv2
 import numpy as np
 from pathlib import Path
@@ -7,20 +8,11 @@ from pathlib import Path
 # Paths
 # --------------------------------------------------
 
-CALIBRATION_FILE = Path(
-    "/home/mylinux/Desktop/MTech_Project/MTP/calibration/results/"
-    "droidcam_calibration.npz"
-)
+CALIBRATION_FILE = CALIBRATION_DIR / "results" / "droidcam_calibration.npz"
 
-IMAGE_FILE = Path(
-    "/home/mylinux/Desktop/MTech_Project/MTP/Classroom-engagement-system/"
-    "src/validation.jpg"
-)
+IMAGE_FILE = SRC_DIR / "validation.jpg"
 
-OUTPUT_FILE = Path(
-    "/home/mylinux/Desktop/MTech_Project/MTP/calibration/results/"
-    "validation_undistorted.jpg"
-)
+OUTPUT_FILE = CALIBRATION_DIR / "results" / "validation_undistorted.jpg"
 
 
 def main():

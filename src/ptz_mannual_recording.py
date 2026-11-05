@@ -1,4 +1,5 @@
 
+from paths import DATASET_DIR
 import cv2
 import os
 from datetime import datetime
@@ -10,7 +11,7 @@ from datetime import datetime
 
 RTSP_URL = "rtsp://192.168.1.123:554/live/av0"
 
-SAVE_DIR = "/home/mylinux/Desktop/MTech_Project/MTP/Classroom-engagement-system/dataset"
+SAVE_DIR = str(DATASET_DIR)
 
 
 # =========================

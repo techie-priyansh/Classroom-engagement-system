@@ -1,3 +1,4 @@
+from paths import CALIBRATION_DIR
 import cv2
 import numpy as np
 from pathlib import Path
@@ -7,14 +8,9 @@ from pathlib import Path
 # Paths
 # --------------------------------------------------
 
-IMAGE_DIR = Path(
-    "/home/mylinux/Desktop/MTech_Project/MTP/calibration/images"
-)
+IMAGE_DIR = CALIBRATION_DIR / "images"
 
-CALIBRATION_FILE = Path(
-    "/home/mylinux/Desktop/MTech_Project/MTP/calibration/results/"
-    "droidcam_calibration.npz"
-)
+CALIBRATION_FILE = CALIBRATION_DIR / "results" / "droidcam_calibration.npz"
 
 
 # --------------------------------------------------

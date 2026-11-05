@@ -1,8 +1,9 @@
+from paths import TEST_VIDEO
 import cv2
 
 from body_pose import BodyPoseEstimator
 
-file_path = "/home/mylinux/Desktop/MTech_Project/MTP/Classroom-engagement-system/215475_medium.mp4"
+file_path = str(TEST_VIDEO)
 
 pose_estimator = BodyPoseEstimator()
 

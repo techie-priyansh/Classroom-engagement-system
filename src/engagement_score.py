@@ -36,9 +36,10 @@ IMPORTANT ASSUMPTIONS (first version, not calibrated against labels)
 
 Run from the repository root:
 
-    python src/engagement_score.py results/video_test/student_data.csv
+    python src/engagement_score.py results/video_test/student_data1.csv
 """
 
+from paths import RESULTS_DIR
 import csv
 import sys
 from collections import defaultdict
@@ -376,7 +377,7 @@ def plot_timeline(results, path, cfg=CONFIG):
 def main():
 
     csv_path = Path(sys.argv[1] if len(sys.argv) > 1
-                    else "results/video_test/student_data.csv")
+                    else str(RESULTS_DIR / "video_test" / "student_data1.csv"))
 
     out_dir = Path(sys.argv[2]) if len(sys.argv) > 2 else csv_path.parent
 
