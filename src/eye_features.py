@@ -85,6 +85,47 @@ def closed_runs(mask):
     return runs
 
 
+def closed_frames(ear, pitch, yaw):
+    """
+    Per-frame eye state of ONE student over one visit.
+
+    Returns (usable, closed, baseline):
+        usable    bool array, frames where the eyes can be judged
+        closed    bool array, usable frames inside a closed run of at least
+                  MIN_CLOSED_FRAMES frames (single-frame dips are ignored)
+        baseline  the student's normal EAR, or None if there are too few
+                  usable frames (then `closed` is all False)
+    """
+
+    ear = np.asarray(ear, dtype=np.float64)
+    pitch = np.asarray(pitch, dtype=np.float64)
+    yaw = np.asarray(yaw, dtype=np.float64)
+
+    usable = (
+        ~np.isnan(ear)
+        & ~np.isnan(pitch) & (np.abs(pitch) <= PITCH_MAX_DEG)
+        & ~np.isnan(yaw) & (np.abs(yaw) <= YAW_MAX_DEG)
+    )
+
+    closed = np.zeros(len(ear), dtype=bool)
+
+    if usable.sum() < MIN_BASELINE_FRAMES:
+        return usable, closed, None
+
+    baseline = float(np.percentile(ear[usable], BASELINE_PERCENTILE))
+
+    if baseline <= 0:
+        return usable, closed, None
+
+    below = usable & (ear / baseline < CLOSED_RATIO)
+
+    for a, b in closed_runs(below):
+        if b - a + 1 >= MIN_CLOSED_FRAMES:
+            closed[a:b + 1] = True
+
+    return usable, closed, baseline
+
+
 def eye_features(ear, pitch, yaw, fps):
     """
     Features for ONE student in ONE segment.
@@ -103,13 +144,7 @@ def eye_features(ear, pitch, yaw, fps):
 
     frames = len(ear)
 
-    measured = ~np.isnan(ear)
-
-    usable = (
-        measured
-        & ~np.isnan(pitch) & (np.abs(pitch) <= PITCH_MAX_DEG)
-        & ~np.isnan(yaw) & (np.abs(yaw) <= YAW_MAX_DEG)
-    )
+    usable, closed, baseline = closed_frames(ear, pitch, yaw)
 
     head_down = ~np.isnan(pitch) & (pitch > PITCH_MAX_DEG)
 
@@ -129,22 +164,12 @@ def eye_features(ear, pitch, yaw, fps):
         "eyes_status": "unknown",
     }
 
-    if usable.sum() < MIN_BASELINE_FRAMES:
-        return result
-
-    baseline = float(np.percentile(ear[usable], BASELINE_PERCENTILE))
-
-    if baseline <= 0:
+    if baseline is None:
         return result
 
     ratio = ear / baseline
 
-    closed = usable & (ratio < CLOSED_RATIO)
-
-    runs = [
-        (a, b) for a, b in closed_runs(closed)
-        if b - a + 1 >= MIN_CLOSED_FRAMES
-    ]
+    runs = closed_runs(closed)
 
     durations = [(b - a + 1) / fps for a, b in runs]
 

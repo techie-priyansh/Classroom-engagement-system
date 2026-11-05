@@ -45,7 +45,7 @@ video_pipeline.py       per settled frame:
 results/video_test/student_data1.csv
         |
 eye_features.py         per student and visit: baseline EAR, PERCLOS, blinks, long closures
-engagement_score.py     score 0-100 per student and visit, class average per visit, timeline graph
+engagement_score.py     score 0-100 per student per visit AND per second, class means, graphs
 ```
 
 `seat_map.py` and `compare_visits.py` are a prototype for recognising the same student when the camera
@@ -73,7 +73,8 @@ Only settled frames are written. `shoulder_tilt` is in degrees; `head_drop` and
 
 ## Engagement score
 
-Built from head direction (front / down / turned away), eye closure (PERCLOS, long closures) and a raised
+Written as `student_scores.csv` (per visit), `student_seconds.csv` (per second), `class_seconds.csv` and two graphs
+(`student_timeline.png`, `student_seconds_timeline.png`). Built from head direction (front / down / turned away), eye closure (PERCLOS, long closures) and a raised
 hand, over the frames where the head direction was measured. If fewer than half of the frames were
 measured the result is "unknown", not "low". All weights are in `CONFIG` at the top of
 `src/engagement_score.py`.
