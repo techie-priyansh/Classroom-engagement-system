@@ -82,3 +82,45 @@ def make_square_roi(frame, bbox):
         )
 
     return roi, (sx1, sy1, sx2, sy2)
+
+
+def head_point(named_keypoints, bbox, min_conf=0.3):
+    """
+    Where the head is in the image, as one (x, y) point in pixels. Used as the
+    anchor that ties a student to a seat.
+
+    Order of preference: nose, mean of the eyes, mean of the ears, and, when
+    no keypoint is reliable, the top centre of the person box.
+
+    Args:
+        named_keypoints: dict from BodyPoseEstimator.get_named_keypoints, or None
+        bbox: (x1, y1, x2, y2) of the person
+    """
+
+    def reliable(name):
+
+        item = (named_keypoints or {}).get(name)
+
+        if item is None:
+            return None
+
+        confidence = item.get("confidence")
+
+        if confidence is not None and confidence < min_conf:
+            return None
+
+        return float(item["point"][0]), float(item["point"][1])
+
+    for names in (("nose",), ("left_eye", "right_eye"), ("left_ear", "right_ear")):
+
+        points = [p for p in (reliable(n) for n in names) if p is not None]
+
+        if points:
+            return (
+                sum(p[0] for p in points) / len(points),
+                sum(p[1] for p in points) / len(points),
+            )
+
+    x1, y1, x2, y2 = map(float, bbox)
+
+    return (x1 + x2) / 2.0, y1 + 0.10 * (y2 - y1)

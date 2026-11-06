@@ -14,7 +14,7 @@ from eye_analyser import EyeAnalyser
 from gaze_estimator import GazeEstimator
 from body_pose import BodyPoseEstimator
 from posture_analyser import PostureAnalyser
-from utils import extract_head_roi, make_square_roi
+from utils import extract_head_roi, head_point, make_square_roi
 from settle import (
     find_settled_segments,
     segments_from_sweep_log,
@@ -288,6 +288,8 @@ def main():
         "head_offset",
         "hand_raised",
         "hands_near_face",
+        "head_x",
+        "head_y",
     ])
 
     # --------------------------------------------------
@@ -454,6 +456,8 @@ def main():
                 hand_raised = None
                 hands_near_face = None
 
+                head_x = head_y = None
+
                 # --------------------------------------------------
                 # Head ROI -> square ROI (from the CLEAN frame)
                 # --------------------------------------------------
@@ -563,6 +567,14 @@ def main():
                         hand_raised = posture["hand_raised"]
                         hands_near_face = posture["hands_near_face"]
 
+                # Head position (anchor for seat identity); the person box is
+                # used when no keypoint is reliable.
+                head_x, head_y = head_point(
+                    body_pose.get_named_keypoints(matched_person)
+                    if matched_person is not None else None,
+                    bbox,
+                )
+
                 # --------------------------------------------------
                 # CSV logging
                 # --------------------------------------------------
@@ -588,6 +600,9 @@ def main():
                     fmt(head_offset, 3),
                     hand_raised,
                     hands_near_face,
+
+                    fmt(head_x, 1),
+                    fmt(head_y, 1),
                 ])
 
                 # --------------------------------------------------

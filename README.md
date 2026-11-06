@@ -48,8 +48,11 @@ eye_features.py         per student and visit: baseline EAR, PERCLOS, blinks, lo
 engagement_score.py     score 0-100 per student per visit AND per second, class means, graphs
 ```
 
-`seat_map.py` and `compare_visits.py` are a prototype for recognising the same student when the camera
-returns to a region (identity tied to the seat). They have not been tested across real visits yet.
+`seat_identity.py` recognises the same student when the camera returns to a region: identity is tied to the
+seat. It aligns every visit to the first visit of its region (`seat_map.py`), finds the seats from the head
+positions (`head_x`, `head_y` in the CSV) and adds a `seat_id` column. `compare_visits.py` measures camera drift
+between two visits. With a `seat_id` column, `engagement_score.py` draws one line per seat across all visits
+(`seat_timeline.png`).
 
 ## Run
 
@@ -58,7 +61,8 @@ From the repository root:
 ```bash
 python src/video_pipeline.py                                   # video -> CSV + annotated video
 python src/eye_features.py   results/video_test/student_data1.csv
-python src/engagement_score.py results/video_test/student_data1.csv
+python src/seat_identity.py <video> results/video_test/student_data1.csv   # adds seat_id, writes check images
+python src/engagement_score.py results/video_test/student_data1_seats.csv
 python src/validate_head_pose.py                               # head pose quality report
 python src/compare_visits.py clipA.mp4 8.0 clipB.mp4 8.0       # camera drift between two visits
 ```
@@ -66,7 +70,8 @@ python src/compare_visits.py clipA.mp4 8.0 clipB.mp4 8.0       # camera drift be
 ## CSV columns (`student_data1.csv`)
 
 `frame, time, region_id, student_id, yaw, pitch, roll, left_ear, right_ear, avg_ear, gaze,
-shoulder_tilt, head_drop, head_offset, hand_raised, hands_near_face`
+shoulder_tilt, head_drop, head_offset, hand_raised, hands_near_face, head_x, head_y`
+(`seat_identity.py` adds `seat_id`).
 
 Only settled frames are written. `shoulder_tilt` is in degrees; `head_drop` and
 `head_offset` are in units of shoulder width. Empty values mean "not measured", never "zero".
@@ -91,12 +96,14 @@ cd src
 python test_posture_analyser.py
 python test_engagement_score.py
 python test_student_manager.py
+python test_seat_identity.py
+python test_head_point.py
 ```
 
 ## Known limitations
 
-- Student IDs restart at every visit; scores of the same student cannot be linked across visits until the
-  seat map is used.
+- Tracker IDs restart at every visit; run `seat_identity.py` to link students across visits. A student who
+  changes seat is a new seat, and two students swapping seats are not noticed.
 - Head-down students (writing) cannot be separated from bored ones with a front camera.
 - The sweep log of the recorder was tested only with a fake camera controller.
 - No ground truth yet, so the score is not validated.

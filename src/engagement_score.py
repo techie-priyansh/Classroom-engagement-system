@@ -56,6 +56,7 @@ from pathlib import Path
 
 import numpy as np
 
+from visits import find_visits, visit_index
 from eye_features import (
     LONG_CLOSURE_SECONDS, closed_frames, closed_runs, eye_features,
 )
@@ -303,12 +304,17 @@ def level_of(score, cfg=CONFIG):
     return "medium"
 
 
-SPLIT_GAP_FRAMES = 5    # a gap in the frame numbers this long starts a new visit
-
-
 # --------------------------------------------------
 # CSV processing
 # --------------------------------------------------
+
+def natural_key(text):
+    """Sort key so that 'R1-S2' < 'R1-S10' and plain numbers sort as numbers."""
+
+    import re
+
+    return [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", str(text))]
+
 
 def _float(value):
     return float(value) if value not in ("", None) else np.nan
@@ -341,30 +347,24 @@ def score_csv(csv_path, cfg=CONFIG):
 
     fps = estimate_fps(rows)
 
-    # A VISIT = a block of consecutive frames (the pipeline only writes
-    # settled frames, so a gap in the frame numbers is a camera move).
-    frame_numbers = sorted({int(r["frame"]) for r in rows})
+    # A VISIT = a block of consecutive frames of one region (visits.py)
+    visits = find_visits(rows)
+    visit_of = visit_index(visits)
 
-    visits = []
-    start = prev = frame_numbers[0]
+    # Identity: the seat when seat_identity.py has added a seat_id column
+    # (the same person across visits), otherwise the tracker ID (valid only
+    # inside one visit).
+    use_seats = "seat_id" in rows[0]
 
-    for n in frame_numbers[1:]:
-        if n - prev > SPLIT_GAP_FRAMES:
-            visits.append((start, prev))
-            start = n
-        prev = n
+    if use_seats:
+        rows = [r for r in rows if r["seat_id"]]
 
-    visits.append((start, prev))
-
-    def visit_of(frame):
-        for i, (a, b) in enumerate(visits):
-            if a <= frame <= b:
-                return i
+    id_column = "seat_id" if use_seats else "student_id"
 
     by_student = defaultdict(list)
 
     for row in rows:
-        by_student[(visit_of(int(row["frame"])), row["region_id"], row["student_id"])].append(row)
+        by_student[(visit_of(int(row["frame"])), row["region_id"], row[id_column])].append(row)
 
     time_of = {int(r["frame"]): float(r["time"]) for r in rows}
 
@@ -373,7 +373,7 @@ def score_csv(csv_path, cfg=CONFIG):
 
     for (visit, region, student), student_rows in by_student.items():
 
-        first, last = visits[visit]
+        first, last = visits[visit]["first"], visits[visit]["last"]
         length = last - first + 1
 
         def column(name):
@@ -391,6 +391,7 @@ def score_csv(csv_path, cfg=CONFIG):
 
         results.append({
             "visit": visit + 1,
+            "sweep": visits[visit]["sweep"],
             "region_id": region,
             "student_id": student,
             "start_s": time_of[first],
@@ -401,14 +402,15 @@ def score_csv(csv_path, cfg=CONFIG):
         for row in second_scores(yaw, pitch, ear, hand, fps, cfg):
             seconds.append({
                 "visit": visit + 1,
+                "sweep": visits[visit]["sweep"],
                 "region_id": region,
                 "student_id": student,
                 "time_s": round(time_of[first] + row["second"], 2),
                 **row,
             })
 
-    results.sort(key=lambda d: (d["visit"], int(d["student_id"])))
-    seconds.sort(key=lambda d: (d["visit"], int(d["student_id"]), d["second"]))
+    results.sort(key=lambda d: (d["visit"], natural_key(d["student_id"])))
+    seconds.sort(key=lambda d: (d["visit"], natural_key(d["student_id"]), d["second"]))
 
     return results, seconds, fps
 
@@ -610,7 +612,7 @@ def plot_seconds(seconds, class_rows, path, cfg=CONFIG):
 
         rows = [r for r in seconds if r["visit"] == visit]
         region = rows[0]["region_id"]
-        ids = sorted({r["student_id"] for r in rows}, key=int)
+        ids = sorted({r["student_id"] for r in rows}, key=natural_key)
 
         ends = []   # (student id, colour, first point, last point)
 
@@ -682,6 +684,121 @@ def plot_seconds(seconds, class_rows, path, cfg=CONFIG):
     plt.close(fig)
 
 
+def _is_seat_mode(rows):
+    return bool(rows) and all("-S" in str(r["student_id"]) for r in rows)
+
+
+def _label_right(ax, ends, x, gap):
+    """Seat names in the right margin, joined to the end of their line."""
+
+    ys = _spread_labels([e[2] for e in ends], gap)
+
+    for (name, colour, y_end, x_end), ly in zip(ends, ys):
+        ax.annotate(
+            name.split("-")[1], xy=(x_end, y_end), xytext=(x, ly),
+            color=colour, fontsize=8.5, fontweight="bold", va="center",
+            ha="left", annotation_clip=False,
+            arrowprops=dict(arrowstyle="-", color=colour, lw=0.6, alpha=0.6,
+                            shrinkA=0, shrinkB=1),
+        )
+
+
+def plot_seats_over_time(seconds, results, path, cfg=CONFIG):
+    """
+    One panel per region; one line per SEAT (= student) across all visits.
+    Top: the per-second score. The thin dotted line bridges the time the camera
+    spent in other regions.
+    Bottom: the same students, one point per visit (visit score).
+    Seat labels are the numbers in the right margin (R<region>-S<number>).
+    """
+
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    regions = sorted({r["region_id"] for r in seconds})
+
+    fig, axes = plt.subplots(
+        2 * len(regions), 1, figsize=(13, 3.4 * 2 * len(regions)),
+        sharex=True, squeeze=False,
+    )
+
+    palette = plt.get_cmap("tab20").colors
+
+    end_time = max(r["time_s"] for r in seconds) + 1.0
+
+    for k, region in enumerate(regions):
+
+        ax_sec, ax_vis = axes[2 * k][0], axes[2 * k + 1][0]
+
+        sec_rows = [r for r in seconds if r["region_id"] == region]
+        vis_rows = [r for r in results if r["region_id"] == region]
+
+        seats = sorted({r["student_id"] for r in sec_rows}, key=natural_key)
+
+        ends_sec, ends_vis = [], []
+
+        for n, seat in enumerate(seats):
+
+            colour = palette[n % len(palette)]
+
+            mine = sorted(
+                (r for r in sec_rows if r["student_id"] == seat and r["score"] is not None),
+                key=lambda r: r["time_s"],
+            )
+
+            if mine:
+                visits_of_seat = sorted({r["visit"] for r in mine})
+                last_point = None
+
+                for v in visits_of_seat:
+
+                    pts = [(r["time_s"] + 0.5, r["score"]) for r in mine if r["visit"] == v]
+                    xs, ys = zip(*pts)
+
+                    ax_sec.plot(xs, ys, "-", color=colour, lw=1.4, alpha=0.9)
+
+                    if last_point is not None:
+                        ax_sec.plot([last_point[0], xs[0]], [last_point[1], ys[0]],
+                                    ":", color=colour, lw=0.8, alpha=0.6)
+
+                    last_point = (xs[-1], ys[-1])
+
+                ends_sec.append((seat, colour, last_point[1], last_point[0]))
+
+            per_visit = sorted(
+                (r for r in vis_rows if r["student_id"] == seat and r["score"] is not None),
+                key=lambda r: r["start_s"],
+            )
+
+            if per_visit:
+                xs = [(r["start_s"] + r["end_s"]) / 2.0 for r in per_visit]
+                ys = [r["score"] for r in per_visit]
+                ax_vis.plot(xs, ys, "-o", color=colour, lw=1.4, ms=4, alpha=0.9)
+                ends_vis.append((seat, colour, ys[-1], xs[-1]))
+
+        _label_right(ax_sec, ends_sec, end_time + 0.6, 4.2)
+        _label_right(ax_vis, ends_vis, end_time + 0.6, 4.2)
+
+        for ax, title in ((ax_sec, f"Region {region}: score per second"),
+                          (ax_vis, f"Region {region}: score per visit")):
+            ax.axhspan(cfg["HIGH_AT"], 100, color="tab:green", alpha=0.07)
+            ax.axhspan(0, cfg["LOW_BELOW"], color="tab:red", alpha=0.07)
+            ax.set_ylim(-2, 102)
+            ax.set_xlim(0, end_time + 0.4)
+            ax.set_ylabel("score (0-100)")
+            ax.set_title(title, fontsize=10, loc="left")
+            ax.grid(alpha=0.25)
+
+    axes[-1][0].set_xlabel("video time (s)")
+
+    fig.suptitle("Engagement per seat across all visits (the number at the "
+                 "end of a line = seat; uncalibrated)", fontsize=11)
+    fig.subplots_adjust(left=0.06, right=0.95, top=0.95, bottom=0.05, hspace=0.35)
+    fig.savefig(path, dpi=110)
+    plt.close(fig)
+
+
 def plot_student_grid(seconds, path, cfg=CONFIG, columns=6, max_visits=6):
     """
     One small panel per student (title = student ID), one row of panels per
@@ -699,7 +816,7 @@ def plot_student_grid(seconds, path, cfg=CONFIG, columns=6, max_visits=6):
         return False
 
     per_visit = {
-        v: sorted({r["student_id"] for r in seconds if r["visit"] == v}, key=int)
+        v: sorted({r["student_id"] for r in seconds if r["visit"] == v}, key=natural_key)
         for v in visits
     }
 
@@ -775,10 +892,16 @@ def main():
     plot_timeline(results, out_dir / "student_timeline.png")
     plot_seconds(seconds, per_second, out_dir / "student_seconds_timeline.png")
 
+    if _is_seat_mode(results):
+        plot_seats_over_time(seconds, results, out_dir / "seat_timeline.png")
+
     if not plot_student_grid(seconds, out_dir / "student_seconds_grid.png"):
         print("(per-student grid skipped: too many visits; use student_seconds.csv)")
 
     scored = [r for r in results if r["score"] is not None]
+
+    if _is_seat_mode(results):
+        print("Identity: seats (seat_id column), so lines continue across visits.")
 
     print(f"{len(results)} student visits ({fps:.0f} fps), {len(scored)} scored, "
           f"{len(results) - len(scored)} unknown (low coverage)")

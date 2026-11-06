@@ -12,10 +12,10 @@ that gap, but students stay in their seats. So identity is tied to the SEAT:
   3. Assign every detection to the nearest free seat (`SeatMap.assign`,
      optimal one-to-one matching, with a distance limit).
 
-STATUS: tested on one clip (one visit per region) with an artificial shift.
-It has NOT been tested across real camera visits. Use `compare_visits.py` on
-a second clip first: it measures how far the real camera view drifts between
-visits, which decides whether this simple approach is enough.
+STATUS: the view alignment and SeatMap are used by seat_identity.py, which was
+tested on a real 2-minute clip with 4 sweeps (see that file). build_seat_map()
+here is the older per-frame clustering; seat_identity.py now builds seats with
+its own constrained clustering.
 """
 
 import cv2
