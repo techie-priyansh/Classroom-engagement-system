@@ -7,7 +7,8 @@ Output: student_scores.csv           one row per student per visit
         student_seconds.csv          one row per student per SECOND
         class_seconds.csv            class average per second
         student_timeline.png         one dot per student per visit
-        student_seconds_timeline.png per-second lines + class mean
+        student_seconds_timeline.png per-second lines + class mean, IDs on the lines
+        student_seconds_grid.png     one small panel per student (short clips only)
 
 The per-second score uses the same rules on 1-second slices. The eye
 baseline comes from the whole visit (one second is too short to know a
@@ -501,8 +502,24 @@ def plot_timeline(results, path, cfg=CONFIG):
 
     for (region, student), points in by_student.items():
         t, s = zip(*sorted(points))
-        ax.plot(t, s, "o-" if len(t) > 1 else "o", ms=4, lw=1, alpha=0.6,
-                label=f"R{region}-{student}")
+        ax.plot(t, s, "o-" if len(t) > 1 else "o", ms=4, lw=1, alpha=0.6)
+
+    # student ID (as in the annotated video) next to every dot of a visit
+    by_time = defaultdict(list)
+
+    for (region, student), points in by_student.items():
+        for x, y in points:
+            by_time[round(x, 1)].append((student, x, y))
+
+    for items in by_time.values():
+        items.sort(key=lambda it: it[2])
+        heights = spread_labels([it[2] for it in items], min_gap=3.0)
+        for (student, x, y), y_label in zip(items, heights):
+            ax.annotate(
+                f"{student}", xy=(x, y), xytext=(x + 0.25, y_label),
+                fontsize=7, va="center",
+                arrowprops=dict(arrowstyle="-", lw=0.4, alpha=0.5),
+            )
 
     ax.axhspan(cfg["HIGH_AT"], 100, color="tab:green", alpha=0.08)
     ax.axhspan(0, cfg["LOW_BELOW"], color="tab:red", alpha=0.08)
@@ -512,57 +529,230 @@ def plot_timeline(results, path, cfg=CONFIG):
     ax.set_ylim(0, 100)
     ax.set_title("Engagement per student and visit (provisional, uncalibrated)")
 
-    if len(by_student) <= 12:
-        ax.legend(fontsize=7, ncol=2)
-
     fig.tight_layout()
     fig.savefig(path, dpi=130)
     plt.close(fig)
 
 
+def spread_labels(ys, min_gap=3.5, low=0.0, high=100.0):
+    """Move label heights apart so that texts do not overlap (keeps the order)."""
+
+    order = sorted(range(len(ys)), key=lambda i: ys[i])
+    placed = {}
+    previous = low - min_gap
+
+    for i in order:
+        y = max(ys[i], previous + min_gap)
+        placed[i] = y
+        previous = y
+
+    # if the top ran past the limit, shift the stack back down
+    overflow = previous - high
+
+    if overflow > 0:
+        for i in placed:
+            placed[i] -= overflow
+
+    return [placed[i] for i in range(len(ys))]
+
+
+def _spread_labels(ys, gap, low=2.0, high=98.0):
+    """Move label heights apart so that no two are closer than `gap`."""
+
+    if not ys:
+        return []
+
+    order = sorted(range(len(ys)), key=lambda i: ys[i])
+    placed = [min(max(y, low), high) for y in ys]
+
+    for k in range(1, len(order)):
+        i, j = order[k - 1], order[k]
+        if placed[j] - placed[i] < gap:
+            placed[j] = placed[i] + gap
+
+    overflow = max(placed) - high
+    if overflow > 0:                      # stack ran past the top: shift down
+        placed = [y - overflow for y in placed]
+        for k in range(len(order) - 2, -1, -1):   # and re-separate from the top
+            i, j = order[k], order[k + 1]
+            if placed[j] - placed[i] < gap:
+                placed[i] = placed[j] - gap
+
+    return placed
+
+
 def plot_seconds(seconds, class_rows, path, cfg=CONFIG):
-    """One line per student and visit, second by second, plus the class mean."""
+    """
+    Per-second scores, one panel per visit. Every student line carries the
+    student ID (the same number as in the annotated video and the CSV), at
+    both ends, so a line can be checked against the video.
+    """
 
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    fig, ax = plt.subplots(figsize=(11, 5))
+    visits = sorted({r["visit"] for r in seconds})
 
-    by_student = defaultdict(list)
+    lengths = [
+        max(r["second"] for r in seconds if r["visit"] == v) + 1 for v in visits
+    ]
 
-    for r in seconds:
-        if r["score"] is not None:
-            by_student[(r["visit"], r["student_id"])].append((r["time_s"] + 0.5, r["score"]))
+    fig, axes = plt.subplots(
+        1, len(visits), sharey=True, squeeze=False,
+        figsize=(max(11, 4.2 * len(visits)), 6),
+        gridspec_kw={"width_ratios": lengths, "wspace": 0.12},
+    )
 
-    for (visit, student), points in sorted(by_student.items()):
-        t, y = zip(*sorted(points))
-        ax.plot(t, y, "-", lw=0.9, alpha=0.45)
+    palette = plt.get_cmap("tab20").colors
 
-    visits = sorted({r["visit"] for r in class_rows})
+    for ax, visit, length in zip(axes[0], visits, lengths):
 
-    for i, v in enumerate(visits):
-        rows = [r for r in class_rows if r["visit"] == v and r["mean_score"] is not None]
-        if not rows:
-            continue
-        ax.plot([r["time_s"] + 0.5 for r in rows], [r["mean_score"] for r in rows],
-                "k-o", lw=2.2, ms=4, label="class mean" if i == 0 else None)
+        rows = [r for r in seconds if r["visit"] == visit]
         region = rows[0]["region_id"]
-        ax.text(np.mean([r["time_s"] for r in rows]), 3, f"visit {v} (R{region})",
-                ha="center", fontsize=8, color="0.35")
+        ids = sorted({r["student_id"] for r in rows}, key=int)
 
-    ax.axhspan(cfg["HIGH_AT"], 100, color="tab:green", alpha=0.08)
-    ax.axhspan(0, cfg["LOW_BELOW"], color="tab:red", alpha=0.08)
+        ends = []   # (student id, colour, first point, last point)
 
-    ax.set_xlabel("time (s)")
-    ax.set_ylabel("engagement score (0-100)")
-    ax.set_ylim(0, 100)
-    ax.set_title("Engagement per second (thin = each student, thick = class mean; uncalibrated)")
-    ax.legend(loc="lower right", fontsize=8)
+        for n, student in enumerate(ids):
 
-    fig.tight_layout()
-    fig.savefig(path, dpi=130)
+            colour = palette[n % len(palette)]
+
+            y = np.full(length, np.nan)
+
+            for r in rows:
+                if r["student_id"] == student and r["score"] is not None:
+                    y[r["second"]] = r["score"]
+
+            if np.all(np.isnan(y)):
+                continue
+
+            x = np.arange(length) + 0.5
+
+            ax.plot(x, y, "-o", color=colour, lw=1.3, ms=3, alpha=0.85)
+
+            valid = np.where(~np.isnan(y))[0]
+            ends.append((student, colour, valid[0], y[valid[0]], valid[-1], y[valid[-1]]))
+
+        # IDs in the right margin, joined to the end of their line, so the
+        # label stays readable even when several lines overlap (e.g. all at 100)
+        label_y = _spread_labels([e[5] for e in ends], gap=4.2)
+
+        for (student, colour, i0, y0, i1, y1), ly in zip(ends, label_y):
+            ax.annotate(
+                student, xy=(i1 + 0.5, y1), xytext=(length + 0.95, ly),
+                color=colour, fontsize=9, fontweight="bold",
+                va="center", ha="left", annotation_clip=False,
+                arrowprops=dict(arrowstyle="-", color=colour, lw=0.7, alpha=0.7,
+                                shrinkA=0, shrinkB=1),
+            )
+
+        mean = np.full(length, np.nan)
+
+        for r in class_rows:
+            if r["visit"] == visit and r["mean_score"] is not None:
+                mean[r["second"]] = r["mean_score"]
+
+        ax.plot(np.arange(length) + 0.5, mean, "k--", lw=2.2, alpha=0.8,
+                label="class mean")
+
+        ax.axhspan(cfg["HIGH_AT"], 100, color="tab:green", alpha=0.07)
+        ax.axhspan(0, cfg["LOW_BELOW"], color="tab:red", alpha=0.07)
+
+        t0 = rows[0]["time_s"] - rows[0]["second"]
+
+        ax.set_xlim(-0.3, length + 1.5)
+        ax.set_ylim(-2, 102)
+        ax.set_xticks(np.arange(length + 1))
+        ax.set_xticklabels([f"{t0 + k:.0f}" for k in range(length + 1)], fontsize=8)
+        ax.set_xlabel("video time (s)")
+        ax.set_title(f"Visit {visit} (Region {region})", fontsize=10)
+        ax.grid(axis="y", alpha=0.25)
+
+    axes[0][0].set_ylabel("engagement score (0-100)")
+    axes[0][0].legend(loc="lower left", fontsize=8)
+
+    fig.suptitle(
+        "Engagement per second; the number at the end of each line is the "
+        "student ID (dashed = class mean, uncalibrated)", fontsize=11,
+    )
+
+    fig.subplots_adjust(left=0.06, right=0.985, top=0.90, bottom=0.10)
+    fig.savefig(path, dpi=140)
     plt.close(fig)
+
+
+def plot_student_grid(seconds, path, cfg=CONFIG, columns=6, max_visits=6):
+    """
+    One small panel per student (title = student ID), one row of panels per
+    visit. Overlapping lines cannot hide each other here, so every ID can be
+    checked against the video. Skipped for long recordings (many visits).
+    """
+
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    visits = sorted({r["visit"] for r in seconds})
+
+    if not visits or len(visits) > max_visits:
+        return False
+
+    per_visit = {
+        v: sorted({r["student_id"] for r in seconds if r["visit"] == v}, key=int)
+        for v in visits
+    }
+
+    rows_needed = sum(-(-len(ids) // columns) for ids in per_visit.values())
+
+    fig, axes = plt.subplots(
+        rows_needed, columns, sharey=True, squeeze=False,
+        figsize=(2.3 * columns, 1.9 * rows_needed + 0.6),
+    )
+
+    row = 0
+
+    for visit in visits:
+
+        ids = per_visit[visit]
+        region = next(r["region_id"] for r in seconds if r["visit"] == visit)
+
+        for n, student in enumerate(ids):
+
+            ax = axes[row + n // columns][n % columns]
+
+            mine = sorted(
+                (r for r in seconds if r["visit"] == visit and r["student_id"] == student),
+                key=lambda r: r["second"],
+            )
+
+            x = [r["second"] + 0.5 for r in mine]
+            y = [np.nan if r["score"] is None else r["score"] for r in mine]
+
+            ax.plot(x, y, "-o", ms=3, lw=1.3, color="tab:blue")
+            ax.axhspan(cfg["HIGH_AT"], 100, color="tab:green", alpha=0.08)
+            ax.axhspan(0, cfg["LOW_BELOW"], color="tab:red", alpha=0.08)
+            ax.set_ylim(-2, 102)
+            ax.set_xlim(0, max(x) + 0.5 if x else 1)
+            ax.set_title(f"ID {student}  (V{visit}/R{region})", fontsize=9, fontweight="bold")
+            ax.tick_params(labelsize=7)
+
+            if all(np.isnan(y)):
+                ax.text(0.5, 0.5, "unknown", transform=ax.transAxes,
+                        ha="center", va="center", color="0.4", fontsize=8)
+
+        for n in range(len(ids), -(-len(ids) // columns) * columns):
+            axes[row + n // columns][n % columns].axis("off")
+
+        row += -(-len(ids) // columns)
+
+    fig.suptitle("Engagement per second, one panel per student "
+                 "(x = seconds into the visit, y = score)", fontsize=11)
+    fig.tight_layout(rect=(0, 0, 1, 0.97))
+    fig.savefig(path, dpi=120)
+    plt.close(fig)
+
+    return True
 
 
 def main():
@@ -571,6 +761,8 @@ def main():
                     else str(RESULTS_DIR / "video_test" / "student_data1.csv"))
 
     out_dir = Path(sys.argv[2]) if len(sys.argv) > 2 else csv_path.parent
+
+    out_dir.mkdir(parents=True, exist_ok=True)
 
     results, seconds, fps = score_csv(csv_path)
     intervals = interval_scores(results)
@@ -582,6 +774,9 @@ def main():
     write_csv(out_dir / "class_seconds.csv", per_second)
     plot_timeline(results, out_dir / "student_timeline.png")
     plot_seconds(seconds, per_second, out_dir / "student_seconds_timeline.png")
+
+    if not plot_student_grid(seconds, out_dir / "student_seconds_grid.png"):
+        print("(per-student grid skipped: too many visits; use student_seconds.csv)")
 
     scored = [r for r in results if r["score"] is not None]
 

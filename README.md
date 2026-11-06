@@ -74,7 +74,7 @@ Only settled frames are written. `shoulder_tilt` is in degrees; `head_drop` and
 ## Engagement score
 
 Written as `student_scores.csv` (per visit), `student_seconds.csv` (per second), `class_seconds.csv` and two graphs
-(`student_timeline.png`, `student_seconds_timeline.png`). Built from head direction (front / down / turned away), eye closure (PERCLOS, long closures) and a raised
+(`student_timeline.png`, `student_seconds_timeline.png` with student IDs on the lines, and `student_seconds_grid.png`, one panel per student, for short clips). Built from head direction (front / down / turned away), eye closure (PERCLOS, long closures) and a raised
 hand, over the frames where the head direction was measured. If fewer than half of the frames were
 measured the result is "unknown", not "low". All weights are in `CONFIG` at the top of
 `src/engagement_score.py`.
