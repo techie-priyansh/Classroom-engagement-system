@@ -54,6 +54,14 @@ positions (`head_x`, `head_y` in the CSV) and adds a `seat_id` column. `compare_
 between two visits. With a `seat_id` column, `engagement_score.py` draws one line per seat across all visits
 (`seat_timeline.png`).
 
+`person_identity.py` combines the seat with face recognition (insightface buffalo_l, embeddings from small crops around
+each head, only frames with a frontal enough face). Tracks of one region are grouped into persons: a face match
+links them, the seat adds a bonus when it agrees and a penalty when it differs, a track without a usable face is
+linked by seat alone, and tracks visible at the same time are never the same person. It adds a `person_id` column
+(`R<region>-P<n>`) and a `persons.csv` report; `engagement_score.py` then uses `person_id` instead of `seat_id`.
+On the 2-minute test clip it gave 8 / 8 / 3 persons, the same as seats alone; seats alone and faces alone each give
+the same people, so the combination matters when one of the two fails (student moved, head turned away).
+
 ## Run
 
 From the repository root:
@@ -62,7 +70,9 @@ From the repository root:
 python src/video_pipeline.py                                   # video -> CSV + annotated video
 python src/eye_features.py   results/video_test/student_data1.csv
 python src/seat_identity.py <video> results/video_test/student_data1.csv   # adds seat_id, writes check images
-python src/engagement_score.py results/video_test/student_data1_seats.csv
+python src/engagement_score.py results/video_test/student_data1_seats.csv   # seat identity only
+python src/person_identity.py <video> results/video_test/student_data1.csv   # seat + face -> student_data1_ids.csv
+python src/engagement_score.py results/video_test/student_data1_ids.csv      # uses person_id
 python src/validate_head_pose.py                               # head pose quality report
 python src/compare_visits.py clipA.mp4 8.0 clipB.mp4 8.0       # camera drift between two visits
 ```
@@ -71,7 +81,7 @@ python src/compare_visits.py clipA.mp4 8.0 clipB.mp4 8.0       # camera drift be
 
 `frame, time, region_id, student_id, yaw, pitch, roll, left_ear, right_ear, avg_ear, gaze,
 shoulder_tilt, head_drop, head_offset, hand_raised, hands_near_face, head_x, head_y`
-(`seat_identity.py` adds `seat_id`).
+(`seat_identity.py` adds `seat_id`, `person_identity.py` adds `seat_id` and `person_id`).
 
 Only settled frames are written. `shoulder_tilt` is in degrees; `head_drop` and
 `head_offset` are in units of shoulder width. Empty values mean "not measured", never "zero".
@@ -97,13 +107,17 @@ python test_posture_analyser.py
 python test_engagement_score.py
 python test_student_manager.py
 python test_seat_identity.py
+python test_person_identity.py
 python test_head_point.py
 ```
 
 ## Known limitations
 
-- Tracker IDs restart at every visit; run `seat_identity.py` to link students across visits. A student who
-  changes seat is a new seat, and two students swapping seats are not noticed.
+- Tracker IDs restart at every visit; run `person_identity.py` (seat + face) to link students across visits.
+  With `seat_identity.py` alone, a student who changes seat is a new seat.
+- Face matching was measured on one 2-minute clip (8 students per region, faces about 60 px wide); re-check the
+  threshold `FACE_MERGE` with a bigger class. Reading faces on CPU takes about 3.5x the clip length; for an hour
+  it has to be run in parallel (per visit) or on a GPU.
 - Head-down students (writing) cannot be separated from bored ones with a front camera.
 - The sweep log of the recorder was tested only with a fake camera controller.
 - No ground truth yet, so the score is not validated.

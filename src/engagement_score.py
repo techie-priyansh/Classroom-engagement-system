@@ -351,15 +351,16 @@ def score_csv(csv_path, cfg=CONFIG):
     visits = find_visits(rows)
     visit_of = visit_index(visits)
 
-    # Identity: the seat when seat_identity.py has added a seat_id column
-    # (the same person across visits), otherwise the tracker ID (valid only
-    # inside one visit).
-    use_seats = "seat_id" in rows[0]
+    # Identity: person_identity.py (face + seat) gives a person_id column,
+    # seat_identity.py a seat_id column (the same person across visits);
+    # otherwise the tracker ID, which is valid only inside one visit.
+    id_column = next(
+        (c for c in ("person_id", "seat_id") if c in rows[0]), "student_id")
+
+    use_seats = id_column != "student_id"
 
     if use_seats:
-        rows = [r for r in rows if r["seat_id"]]
-
-    id_column = "seat_id" if use_seats else "student_id"
+        rows = [r for r in rows if r[id_column]]
 
     by_student = defaultdict(list)
 
@@ -685,7 +686,8 @@ def plot_seconds(seconds, class_rows, path, cfg=CONFIG):
 
 
 def _is_seat_mode(rows):
-    return bool(rows) and all("-S" in str(r["student_id"]) for r in rows)
+    return bool(rows) and all(
+        "-S" in str(r["student_id"]) or "-P" in str(r["student_id"]) for r in rows)
 
 
 def _label_right(ax, ends, x, gap):
@@ -792,8 +794,8 @@ def plot_seats_over_time(seconds, results, path, cfg=CONFIG):
 
     axes[-1][0].set_xlabel("video time (s)")
 
-    fig.suptitle("Engagement per seat across all visits (the number at the "
-                 "end of a line = seat; uncalibrated)", fontsize=11)
+    fig.suptitle("Engagement per student across all visits (the label at the "
+                 "end of a line = seat or person; uncalibrated)", fontsize=11)
     fig.subplots_adjust(left=0.06, right=0.95, top=0.95, bottom=0.05, hspace=0.35)
     fig.savefig(path, dpi=110)
     plt.close(fig)
@@ -901,7 +903,7 @@ def main():
     scored = [r for r in results if r["score"] is not None]
 
     if _is_seat_mode(results):
-        print("Identity: seats (seat_id column), so lines continue across visits.")
+        print("Identity: person_id or seat_id column, so lines continue across visits.")
 
     print(f"{len(results)} student visits ({fps:.0f} fps), {len(scored)} scored, "
           f"{len(results) - len(scored)} unknown (low coverage)")

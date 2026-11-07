@@ -69,3 +69,5 @@ typing_extensions==4.16.0
 ultralytics==8.4.104
 ultralytics-thop==2.0.20
 urllib3==2.7.0
+insightface==2.1
+onnxruntime==1.29.0
